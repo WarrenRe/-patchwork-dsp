@@ -607,7 +607,8 @@
       <span>LOCAL MEDIA DECK &amp; 12-WAY NOISE MAKER</span>
     </div>
     <div class="header-right">
-      <span id="scrollClock">CLK: 120.0 MHz // Y_IDLE</span>
+      <!-- COMMENTED OUT: Y-Axis / Clock Tracker to prevent mobile overflow -->
+      <!-- <span id="scrollClock">CLK: 120.0 MHz // Y_IDLE</span> -->
       <a href="#live-rack" class="cta-top">[ LAUNCH RACK ]</a>
     </div>
   </header>
@@ -1124,6 +1125,8 @@
       backdrop.appendChild(document.createElement('div'));
     }
 
+// COMMENTED OUT: Scroll clock and Y-axis calculation listener
+    /*
     let lastScrollY = window.scrollY;
     const scrollClock = document.getElementById('scrollClock');
     window.addEventListener('scroll', () => {
@@ -1132,6 +1135,7 @@
       lastScrollY = currentY;
       scrollClock.textContent = `CLK: ${(120 + delta * 3.7).toFixed(1)} MHz // Y: ${Math.round(currentY)}px`;
     });
+    */
 
     // Easter Egg Overlays for Module Spec 01 & 02
     let cardFlashTimeout = null;
