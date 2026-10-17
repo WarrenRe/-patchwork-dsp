@@ -1,0 +1,1730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PATCHWORK // DSP - 12-WAY NOISE MAKER</title>
+  
+  <!-- Attached Logo Favicon (Ensure 'favicon.png' is in the same directory) -->
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <!-- Fallback inline SVG matching the gold mask/goggle waveform aesthetic -->
+  <link rel="alternate icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Crect width='120' height='120' fill='%230a0a0c'/%3E%3Cpath d='M20 65 A40 40 0 0 1 100 65' fill='none' stroke='%23d49b27' stroke-width='8'/%3E%3Ccircle cx='60' cy='58' r='32' fill='%23c48f2b'/%3E%3Crect x='12' y='46' width='16' height='32' fill='%23ffb000' stroke='%238c6214' stroke-width='3'/%3E%3Crect x='92' y='46' width='16' height='32' fill='%23ffb000' stroke='%238c6214' stroke-width='3'/%3E%3Ccircle cx='45' cy='56' r='14' fill='%231a120b' stroke='%23d49b27' stroke-width='4'/%3E%3Ccircle cx='75' cy='56' r='14' fill='%231a120b' stroke='%23d49b27' stroke-width='4'/%3E%3Cpath d='M39 56v-6M43 56v-10M47 56v-8M51 56v-4M69 56v-6M73 56v-10M77 56v-8M81 56v-4' stroke='%23ffb000' stroke-width='2.5' stroke-linecap='round'/%3E%3Cpath d='M39 56v6M43 56v10M47 56v8M51 56v4M69 56v6M73 56v10M77 56v8M81 56v4' stroke='%23ffb000' stroke-width='2.5' stroke-linecap='round'/%3E%3Cpolygon points='46,85 74,85 85,112 35,112' fill='%23c48f2b'/%3E%3C/svg%3E" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,500;0,700;0,800;1,400&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0a0c;
+      --paper: #f2ece1;
+      --amber: #ffb000;
+      --neon-orange: #ff5500;
+      --grid-line: rgba(242, 236, 225, 0.11);
+      --border-strong: rgba(242, 236, 225, 0.35);
+      --mono: 'JetBrains Mono', monospace;
+      --display: 'Space Grotesk', sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      background-color: var(--bg);
+      color: var(--paper);
+      font-family: var(--mono);
+      overflow-x: hidden;
+      scroll-behavior: smooth;
+    }
+
+    /* Fixed 24-Column Builders Table Ruler & Grid */
+    .grid-ruler {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 26px;
+      display: grid;
+      grid-template-columns: repeat(24, 1fr);
+      border-bottom: 1px solid var(--border-strong);
+      background: rgba(10, 10, 12, 0.92);
+      z-index: 100;
+      font-size: 9px;
+      color: rgba(242, 236, 225, 0.55);
+    }
+    .grid-ruler div {
+      border-right: 1px solid var(--grid-line);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .grid-backdrop {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      grid-template-columns: repeat(24, 1fr);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .grid-backdrop div {
+      border-right: 1px solid var(--grid-line);
+      height: 100vh;
+    }
+
+    #ditherCanvas {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1;
+      pointer-events: none;
+      opacity: 0.78;
+    }
+
+    header {
+      position: fixed;
+      top: 26px; left: 0; right: 0;
+      height: 44px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 24px;
+      background: rgba(10, 10, 12, 0.85);
+      backdrop-filter: blur(4px);
+      border-bottom: 1px solid var(--border-strong);
+      z-index: 95;
+      font-size: 11px;
+    }
+    .header-left, .header-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .brand-logo {
+      width: 26px;
+      height: 26px;
+      border: 1px solid var(--amber);
+      object-fit: cover;
+      display: block;
+    }
+    .tag-amber {
+      background: var(--amber);
+      color: #0a0a0c;
+      padding: 2px 7px;
+      font-weight: 800;
+    }
+    .cta-top {
+      color: #0a0a0c;
+      background: var(--paper);
+      padding: 6px 14px;
+      text-decoration: none;
+      font-weight: 700;
+      border: 1px solid var(--paper);
+      transition: 0.15s;
+    }
+    .cta-top:hover {
+      background: var(--amber);
+      border-color: var(--amber);
+    }
+
+    main {
+      position: relative;
+      z-index: 10;
+      padding-top: 90px;
+      padding-bottom: 80px; /* Space for persistent fixed footer */
+    }
+
+    .section-block {
+      max-width: 1360px;
+      margin: 0 auto 120px auto;
+      padding: 0 24px;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 24px;
+      align-items: start;
+      min-height: 70vh;
+      padding-top: 30px;
+    }
+    .hero-title-box { grid-column: 1 / 8; }
+    .hero-lens-side {
+      grid-column: 8 / 13;
+      background: var(--paper);
+      color: #0a0a0c;
+      mix-blend-mode: difference;
+      border: 1px solid var(--paper);
+      padding: 32px;
+    }
+
+    h1 {
+      font-family: var(--display);
+      font-size: clamp(2.8rem, 5.2vw, 5.4rem);
+      line-height: 0.92;
+      letter-spacing: -0.03em;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+    }
+    .subtitle {
+      font-size: 14px;
+      line-height: 1.6;
+      max-width: 560px;
+      color: rgba(242, 236, 225, 0.85);
+      margin-bottom: 32px;
+    }
+
+    .btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+    }
+    .btn-primary {
+      background: var(--amber);
+      color: #0a0a0c;
+      border: 1px solid var(--amber);
+      padding: 14px 24px;
+      font-family: var(--mono);
+      font-weight: 800;
+      font-size: 12px;
+      text-transform: uppercase;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      transition: 0.15s;
+    }
+    .btn-primary:hover { background: var(--paper); border-color: var(--paper); }
+    .btn-outline {
+      background: rgba(10, 10, 12, 0.8);
+      color: var(--paper);
+      border: 1px solid var(--paper);
+      padding: 10px 14px;
+      font-family: var(--mono);
+      font-weight: 700;
+      font-size: 11px;
+      text-transform: uppercase;
+      cursor: pointer;
+      text-decoration: none;
+      transition: 0.15s;
+    }
+    .btn-outline:hover, .btn-outline.active-wave {
+      border-color: var(--amber);
+      color: #0a0a0c;
+      background: var(--amber);
+    }
+
+    /* RACK & LOCAL MEDIA CONTAINER */
+    .rack-window {
+      border: 1px solid var(--amber);
+      background: rgba(12, 12, 14, 0.95);
+      box-shadow: 12px 12px 0px rgba(255, 176, 0, 0.18);
+    }
+    .window-titlebar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 16px;
+      background: var(--amber);
+      color: #0a0a0c;
+      font-weight: 800;
+      font-size: 12px;
+    }
+
+    .rack-media-strip {
+      display: grid;
+      grid-template-columns: 1fr 640px;
+      border-bottom: 1px solid var(--border-strong);
+      background: #111114;
+      align-items: center;
+    }
+    .media-controls-col {
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      border-right: 1px solid var(--border-strong);
+      height: 100%;
+      justify-content: center;
+    }
+
+    .upload-row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .loop-toggle-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--paper);
+      cursor: pointer;
+      user-select: none;
+      border: 1px solid var(--border-strong);
+      padding: 9px 12px;
+      background: #08080a;
+    }
+    .loop-toggle-label input {
+      accent-color: var(--amber);
+      cursor: pointer;
+    }
+
+    .waveform-bank {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-top: 8px;
+      border-top: 1px dashed var(--border-strong);
+    }
+    .wave-btn-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    /* 640x360 Local Media Container Aligned on Right */
+    .webview-container-col {
+      width: 640px;
+      height: 360px;
+      background: #050507;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .webview-container-col video {
+      width: 100%;
+      height: 100%;
+      border: none;
+      display: block;
+      background: #000;
+      object-fit: contain;
+    }
+    .media-placeholder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 24px;
+      text-align: center;
+      pointer-events: none;
+      color: rgba(242, 236, 225, 0.5);
+      font-size: 11px;
+      border: 1px dashed rgba(255, 176, 0, 0.25);
+      margin: 16px;
+    }
+
+    /* 12-MODULE PEDAL RACK GRID */
+    .rack-pedals-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+    }
+    .pedal-unit {
+      padding: 20px;
+      border-right: 1px solid var(--border-strong);
+      border-bottom: 1px solid var(--border-strong);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 14px;
+      position: relative;
+    }
+    .pedal-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px dashed var(--border-strong);
+      padding-bottom: 10px;
+      position: relative;
+    }
+
+    /* HOVER MENU TALK BUBBLE ON MODULE TITLE */
+    .pedal-title-wrap {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: help;
+    }
+    .pedal-title-wrap h3 {
+      font-size: 12px;
+      color: var(--amber);
+      border-bottom: 1px dotted rgba(255, 176, 0, 0.55);
+      padding-bottom: 2px;
+      transition: color 0.15s;
+    }
+    .pedal-title-wrap:hover h3 {
+      color: var(--paper);
+    }
+
+    .favicon-talk-bubble {
+      position: absolute;
+      bottom: calc(100% + 14px);
+      left: 0;
+      width: 280px;
+      background: #121216;
+      border: 1px solid var(--amber);
+      box-shadow: 6px 6px 0px rgba(255, 176, 0, 0.28);
+      padding: 12px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      z-index: 200;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(6px);
+      transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
+      pointer-events: none;
+    }
+    /* Talk bubble tail arrow */
+    .favicon-talk-bubble::after {
+      content: '';
+      position: absolute;
+      top: 100%;
+      left: 22px;
+      border-width: 7px;
+      border-style: solid;
+      border-color: var(--amber) transparent transparent transparent;
+    }
+    .pedal-title-wrap:hover .favicon-talk-bubble {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+    }
+    .bubble-avatar {
+      width: 36px;
+      height: 36px;
+      border: 1px solid var(--amber);
+      flex-shrink: 0;
+      object-fit: cover;
+      background: #0a0a0c;
+    }
+    .bubble-copy {
+      font-size: 10px;
+      line-height: 1.45;
+      color: var(--paper);
+      font-weight: 400;
+    }
+    .bubble-copy strong {
+      color: var(--amber);
+      display: block;
+      margin-bottom: 3px;
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+
+    /* ENGAGEABLE STOMP SWITCH BUTTONS WITH 2PX OFFSET SHADOWS */
+    .stomp-switch {
+      padding: 4px 9px;
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 800;
+      border: 1px solid var(--amber);
+      background: var(--amber);
+      color: #0a0a0c;
+      cursor: pointer;
+      box-shadow: 2px 2px 0px var(--neon-orange);
+      transition: transform 0.08s ease, box-shadow 0.08s ease, background-color 0.15s ease, color 0.15s ease;
+      user-select: none;
+    }
+    .stomp-switch:hover {
+      transform: translate(-1px, -1px);
+      box-shadow: 3px 3px 0px var(--neon-orange);
+    }
+    .stomp-switch:active {
+      transform: translate(2px, 2px);
+      box-shadow: 0px 0px 0px var(--neon-orange);
+    }
+    .stomp-switch.bypassed {
+      background: #141418;
+      color: var(--paper);
+      border-color: var(--border-strong);
+      box-shadow: 2px 2px 0px #ffffff;
+    }
+    .stomp-switch.bypassed:hover {
+      border-color: #ffffff;
+      transform: translate(-1px, -1px);
+      box-shadow: 3px 3px 0px #ffffff;
+    }
+    .stomp-switch.bypassed:active {
+      transform: translate(2px, 2px);
+      box-shadow: 0px 0px 0px #ffffff;
+    }
+
+    .param-group { display: flex; flex-direction: column; gap: 6px; }
+    .param-label { display: flex; justify-content: space-between; font-size: 10px; }
+    .param-label span:last-child { color: var(--amber); font-weight: 700; }
+    input[type="range"] {
+      width: 100%;
+      -webkit-appearance: none;
+      height: 8px;
+      background: #1a1917;
+      border: 1px solid var(--border-strong);
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 13px;
+      height: 20px;
+      background: var(--amber);
+      border: 1px solid var(--paper);
+      cursor: ew-resize;
+    }
+
+    /* CLICKABLE SPEC SHOWCASE CARDS WITH MATCHING OFFSET SHADOWS */
+    .spec-showcase {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      row-gap: 48px;
+      column-gap: 24px;
+    }
+    .card-a { grid-column: 1 / 8; grid-row: 1; }
+    .card-b { grid-column: 6 / 13; grid-row: 2; }
+    .dark-tech-card {
+      background: rgba(14, 14, 16, 0.92);
+      border: 1px solid var(--paper);
+      padding: 36px;
+    }
+    .clickable-spec-card {
+      cursor: pointer;
+      user-select: none;
+      transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.15s ease;
+    }
+    .card-a.clickable-spec-card {
+      border-color: var(--amber);
+      box-shadow: 2px 2px 0px var(--neon-orange);
+    }
+    .card-a.clickable-spec-card:hover {
+      transform: translate(-1px, -1px);
+      box-shadow: 4px 4px 0px var(--neon-orange);
+    }
+    .card-a.clickable-spec-card:active {
+      transform: translate(2px, 2px);
+      box-shadow: 0px 0px 0px var(--neon-orange);
+    }
+    .card-b.clickable-spec-card {
+      border-color: var(--paper);
+      box-shadow: 2px 2px 0px #ffffff;
+    }
+    .card-b.clickable-spec-card:hover {
+      transform: translate(-1px, -1px);
+      box-shadow: 4px 4px 0px #ffffff;
+    }
+    .card-b.clickable-spec-card:active {
+      transform: translate(2px, 2px);
+      box-shadow: 0px 0px 0px #ffffff;
+    }
+
+    /* EASTER EGG FULLSCREEN OVERLAYS (NON-BLOCKING FOR AUDIO & UI) */
+    .easter-egg-overlay {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 99999;
+      pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.65s ease, visibility 0.65s ease;
+    }
+    .easter-egg-overlay.active-flash {
+      opacity: 1;
+      visibility: visible;
+      transition: opacity 0.04s ease, visibility 0s;
+    }
+
+    /* Shared Easter Egg Layout: Pitch black background, centered at bottom, 50% of smallest viewport dimension (50vmin) */
+    .image-flash-overlay {
+      background: #000000;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .image-flash-overlay img {
+      width: 50vmin;
+      height: auto;
+      max-height: 50vmin;
+      object-fit: contain;
+      object-position: bottom center;
+      display: block;
+    }
+
+    /* PERSISTENT FIXED FOOTER BANNER */
+    footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      border-top: 1px solid var(--border-strong);
+      padding: 14px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      background: rgba(8, 8, 10, 0.92);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+    }
+    .footer-link {
+      color: var(--amber);
+      text-decoration: none;
+      font-weight: 700;
+      border-bottom: 1px solid var(--amber);
+      padding-bottom: 2px;
+    }
+    .footer-link:hover { color: var(--paper); border-color: var(--paper); }
+
+    @media (max-width: 1050px) {
+      .rack-media-strip { grid-template-columns: 1fr; }
+      .webview-container-col { width: 100%; height: 280px; }
+      .hero-title-box, .hero-lens-side, .card-a, .card-b { grid-column: 1 / -1; }
+      .wave-btn-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Easter Egg Overlay 01: um2.jpg against black background, centered at bottom, 50vmin size -->
+  <div id="cardFlashOverlay" class="easter-egg-overlay image-flash-overlay">
+    <img src="um2.jpg" alt="UMM! Flash" />
+  </div>
+
+  <!-- Easter Egg Overlay 02: um1.jpg against black background, centered at bottom, 50vmin size -->
+  <div id="spec02FlashOverlay" class="easter-egg-overlay image-flash-overlay">
+    <img src="um1.jpg" alt="UUMM? Flash" />
+  </div>
+
+  <div class="grid-ruler" id="gridRuler"></div>
+  <div class="grid-backdrop" id="gridBackdrop"></div>
+  <canvas id="ditherCanvas"></canvas>
+
+  <header>
+    <div class="header-left">
+      <img src="favicon.png" alt="Logo" class="brand-logo" onerror="this.style.display='none'" />
+      <span class="tag-amber">PATCHWORK // PROCRASTINATION_STATION</span>
+      <span>LOCAL MEDIA DECK &amp; 12-WAY NOISE MAKER</span>
+    </div>
+    <div class="header-right">
+      <span id="scrollClock">CLK: 120.0 MHz // Y_IDLE</span>
+      <a href="#live-rack" class="cta-top">[ LAUNCH RACK ]</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="section-block hero-grid">
+      <div class="hero-title-box">
+        <div style="color: var(--amber); font-size: 12px; margin-bottom: 12px; font-weight: 700;">
+          [SYS_REF: PATCHWORK // PROCRASTINATION_STATION]
+        </div>
+        <h1>DROP YOUR FILES INTO THE VOID. DISTORT RESPONSIBLY.</h1>
+        <p class="subtitle">
+          Upload whatever audio or video file you've been hoarding on your hard drive. Loop it endlessly, twist twelve knobs to change the audio. The file will loop automatically, so you can camp here and pretend the world doesnt exist for as long as you like.
+        </p>
+        <div class="btn-row">
+          <a href="#live-rack" class="btn-primary">&rarr; LAUNCH LOCAL MEDIA RACK</a>
+        </div>
+      </div>
+
+      <div class="hero-lens-side">
+        <div style="font-size: 11px; border-bottom: 1px solid #0a0a0c; padding-bottom: 8px; margin-bottom: 14px; font-weight: 700;">
+          LOCAL_DECK // 640x360 LOOP WINDOW
+        </div>
+        <p style="font-size: 12px; line-height: 1.6; margin-bottom: 14px;">
+          A tidy little container built for high-spec visual inspection and questionable audio choices. Zero setup required, zero career advancement guaranteed.
+        </p>
+        <div style="font-size: 11px; display: flex; justify-content: space-between; font-weight: 700;">
+          <span>DIMENSIONS: 640x360</span>
+          <span>FX UNITS: 12</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- RACK & 640x360 LOCAL MEDIA CONTAINER -->
+    <section id="live-rack" class="section-block">
+      <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 16px;">
+        <div>
+          <span style="color: var(--amber); font-size: 11px; font-weight: 700;">[01 // LOCAL LOOP DECK &amp; 12-MODULE RACK]</span>
+          <h2 style="font-family: var(--display); font-size: 32px; text-transform: uppercase;">LOCAL MEDIA &amp; WAVEFORM PROCESSOR</h2>
+        </div>
+        <span style="font-size: 11px; color: rgba(242,236,225,0.6);">HOVER ANY MODULE TITLE FOR AUDIO GUIDE</span>
+      </div>
+
+      <div class="rack-window">
+        <div class="window-titlebar">
+          <span>RACK_UNIT // TIME_WASTER_12.EXE</span>
+          <span id="audioStatusText">STATUS: READY (UPLOAD LOCAL MEDIA OR ENGAGE WAVEFORM)</span>
+        </div>
+
+        <div class="rack-media-strip">
+          <div class="media-controls-col">
+            <div>
+              <span style="font-size: 10px; color: var(--amber); font-weight: 700;">[LOCAL FILE UPLOAD &amp; AUTO-LOOP DECK]</span>
+              <p style="font-size: 11px; color: rgba(242,236,225,0.75); margin-top: 6px; line-height: 1.5;">
+                Upload a file here.. play with the sliders down there. Simple.  Try to keep the files as small as possible , and click whatever buttons look fun. Mouse over the Module titles to learn what each effect does.
+              </p>
+            </div>
+            
+            <div class="upload-row">
+              <label for="localFileInput" class="btn-primary" style="padding: 10px 18px; font-size: 11px;">
+                [ UPLOAD LOCAL MEDIA FILE ]
+              </label>
+              <input type="file" id="localFileInput" accept="video/*,audio/*" style="display: none;">
+
+              <label class="loop-toggle-label">
+                <input type="checkbox" id="loopToggleCheckbox" checked>
+                <span>AUTO-LOOP ENABLED</span>
+              </label>
+
+              <span id="rmsMeter" style="font-size: 11px; color: var(--amber); font-weight: 700; margin-left: auto;">LVL: -&#8734; dB</span>
+            </div>
+
+            <!-- 4 Waveform Tone Generators -->
+            <div class="waveform-bank">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 10px; color: var(--amber); font-weight: 700;">[WAVEFORM TONE GENERATORS // SYNTH TEST SOURCE]</span>
+                <span id="valToneFreq" style="font-size: 10px; color: var(--paper);">PITCH: 110 Hz (A2)</span>
+              </div>
+              <div class="wave-btn-grid">
+                <button class="btn-outline wave-btn" data-wave="sine">[ SINE ]</button>
+                <button class="btn-outline wave-btn" data-wave="square">[ SQUARE ]</button>
+                <button class="btn-outline wave-btn" data-wave="sawtooth">[ SAWTOOTH ]</button>
+                <button class="btn-outline wave-btn" data-wave="triangle">[ TRIANGLE ]</button>
+              </div>
+              <div class="param-group" style="margin-top: 4px;">
+                <div class="param-label">
+                  <span>GENERATOR PITCH (HZ)</span>
+                  <span id="BeatCounterDisplay">BEAT HIT: 0 / 4</span>
+                </div>
+                <input type="range" id="ctrlToneFreq" min="55" max="880" step="1" value="110">
+              </div>
+            </div>
+          </div>
+
+          <!-- 640x360 Local Media Container Window Aligned on Right -->
+          <div class="webview-container-col" id="webviewContainer">
+            <div class="media-placeholder" id="mediaPlaceholder">
+              <span style="color: var(--amber); font-weight: 700; font-size: 12px;">[ LOCAL_DECK // 640x360 LOOP WINDOW ]</span>
+              <span>Click "UPLOAD LOCAL MEDIA FILE" on the left to load a video or audio track (auto-loops by default), or engage a Waveform Tone Generator button to audition effects.</span>
+            </div>
+            <video id="directMediaPlayer" controls loop crossorigin="anonymous" style="display: none;"></video>
+          </div>
+        </div>
+
+        <!-- 12 Pedal Modules Grid (Only Flanger, Delay, and Reverb Active by Default) -->
+        <div class="rack-pedals-grid">
+          <!-- [01] DISTORTION -->
+          <div class="pedal-unit">
+            <div class="pedal-head">
+              <div class="pedal-title-wrap">
+                <h3>[01] DISTORTION // WAVESHAPER</h3>
+                <div class="favicon-talk-bubble">
+                  <img src="favicon.png" alt="Guide" class="bubble-avatar" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22%3E%3Crect width=%2240%22 height=%2240%22 fill=%22%23ffb000%22/%3E%3C/svg%3E'" />
+                  <div class="bubble-copy">
+                    <strong>Distortion // Waveshaper</strong>
+                    Adds gritty, overdriven crunch by clipping the peaks of your audio wave. Turning <em>Clipping Gain</em> up pushes the sound from warm tube saturation into aggressive fuzz.
+                  </div>
+                </div>
+              </div>
+              <button class="stomp-switch bypassed" id="bypDistortion">BYPASSED</button>
+            </div>
+            <div class="param-group">
+              <div class="param-label">
+                <span>CLIPPING GAIN (k)</span>
+                <span id="valDistortion">260</span>
+              </div>
+              <input type="range" id="ctrlDistortion" min="0" max="800" value="260">
+            </div>
+          </div>
+
+          <!-- [02] BITCRUSH -->
+          <div class="pedal-unit">
+            <div class="pedal-head">
+              <div class="pedal-title-wrap">
+                <h3>[02] BITCRUSH // QUANTIZER</h3>
+                <div class="favicon-talk-bubble">
+                  <img src="favicon.png" alt="Guide" class="bubble-avatar" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22%3E%3Crect width=%2240%22 height=%2240%22 fill=%22%23ffb000%22/%3E%3C/svg%3E'" />
+                  <div class="bubble-copy">
+                    <strong>Bitcrush // Quantizer</strong>
+                    Reduces digital audio resolution for a retro, lo-fi video game texture. Lowering the <em>Bit Depth</em> toward 1 bit makes the sound increasingly blocky, noisy, and robotic.
+                  </div>
+                </div>
+              </div>
+              <button class="stomp-switch bypassed" id="bypBitcrush">BYPASSED</button>
+            </div>
+            <div class="param-group">
+              <div class="param-label">
+                <span>BIT DEPTH</span>
+                <span id="valBitcrush">6 BITS</span>
+              </div>
+              <input type="range" id="ctrlBitcrush" min="1" max="16" step="1" value="6">
+            </div>
+          </div>
+
+          <!-- [03] COMPRESSOR -->
+          <div class="pedal-unit">
+            <div class="pedal-head">
+              <div class="pedal-title-wrap">
+                <h3>[03] COMPRESSOR // DYNAMICS</h3>
+                <div class="favicon-talk-bubble">
+                  <img src="favicon.png" alt="Guide" class="bubble-avatar" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22%3E%3Crect width=%2240%22 height=%2240%22 fill=%22%23ffb000%22/%3E%3C/svg%3E'" />
+                  <div class="bubble-copy">
+                    <strong>Compressor // Dynamics</strong>
+                    Evens out volume by taming loud peaks and boosting quieter details. Lowering <em>Threshold</em> catches more of the signal, while raising <em>Ratio</em> squeezes the sound tighter and punchier.
+                  </div>
+                </div>
+              </div>
+              <button class="stomp-switch bypassed" id="bypCompressor">BYPASSED</button>
+            </div>
+            <div class="param-group">
+              <div class="param-label">
+                <span>THRESHOLD</span>
+                <span id="valCompThresh">-24 dB</span>
+              </div>
+              <input type="range" id="ctrlCompThresh" min="-60" max="0" step="1" value="-24">
+            </div>
+            <div class="param-group">
+              <div class="param-label">
+                <span>COMPRESSION RATIO</span>
+                <span id="valCompRatio">6.0 : 1</span>
+              </div>
+              <input type="range" id="ctrlCompRatio" min="1" max="20" step="0.5" value="6">
+            </div>
+          </div>
+
+          <!-- [04] RESONANT FILTER SWEEP -->
+          <div class="pedal-unit">
+            <div class="pedal-head">
+              <div class="pedal-title-wrap">
+                <h3>[04] RESONANT FILTER SWEEP</h3>
+                <div class="favicon-talk-bubble">
+                  <img src="favicon.png" alt="Guide" class="bubble-avatar" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22%3E%3Crect width=%2240%22 height=%2240%22 fill=%22%23ffb000%22/%3E%3C/svg%3E'" />
+                  <div class="bubble-copy">
+                    <strong>Resonant Filter Sweep</strong>
+                    Automatically sweeps a tone curtain back and forth. Higher <em>Base Cutoff</em> lets brighter highs through, <em>Sweep Rate</em> controls the wave speed, and <em>Resonance</em> adds a sharp synth whistle at the edge.
+                  </div>
+                </div>
+              </div>
+              <button class="stomp-switch bypassed" id="bypSweep">BYPASSED</button>
+            </div>
+            <div class="param-group">
+              <div class="param-label">
+                <span>BASE CUTOFF</span>
+                <span id="valCutoff">1200 Hz</span>
+              </div>
+              <input type="range" id="ctrlCutoff" min="150" max="6000" value="1200">
+            </div>
+            <div class="param-group">
+              <div class="param-label">
+                <span>LFO SWEEP RATE</span>
+                <span id="valSweepRate">0.60 Hz</span>
+              </div>
+              <input type="range" id="ctrlSweepRate" min="0.05" max="6.0" step="0.05" value="0.60">
+            </div>
+            <div class="param-group">
+              <div class="param-label">
+                <span>RESONANCE (Q)</span>
+                <span id="valSweepQ">4.5</span>
+              </div>
+              <input type="range" id="ctrlSweepQ" min="0.7" max="18.0" step="0.1" value="4.5">
+            </div>
+          </div>
+
+          <!-- [05] WAH-WAH -->
+          <div class="pedal-unit">
+            <div class="pedal-head">
+              <div class="pedal-title-wrap">
+                <h3>[05] WAH-WAH // BANDPASS</h3>
+                <div class="favicon-talk-bubble">
+                  <img src="favicon.png" alt="Guide" class="bubble-avatar" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22%3E%3Crect width=%2240%22 height=%2240%22 fill=%22%23ffb000%22/%3E%3C/svg%3E'" />
+                  <div class="bubble-copy">
+                    <strong>Wah-Wah // Bandpass</strong>
+                    Creates a funky, vocal-like "wah" sweep by moving a focused frequency peak up and down. Raising <em>Wah Speed</em> rocks the pedal faster, while <em>Vocal Throat Q</em> makes the vowel sound more pronounced.
+                  </div>
+                </div>
+              </div>
+              <button class="stomp-switch bypassed" id="bypWah">BYPASSED</button>
+            </div>
+            <div class="param-group">
+              <div class="param-label">
+                <span>WAH SPEED</span>
+                <span id="valWahRate">1.80 Hz</span>
+              </div>
+              <input type="range" id="ctrlWahRate" min="0.2" max="8.0" step="0.1" value="1.8">
+            </div>
+            <div class="param-group">
+              <div class="param-label">
+                <span>SWEEP RANGE</span>
+                <span id="valWahDepth">1100 Hz</span>
+              </div>
+              <input type="range" id="ctrlWahDepth" min="200" max="2200" step="50" value="1100">
+            </div>
+            <div class="param-group">
+              <div class="param-label">
+                <span>VOCAL THROAT (Q)</span>
+                <span id="valWahQ">5.5</span>
+              </div>
+              <input type="range" id="ctrlWahQ" min="1.0" max="15.0" step="0.5" value="5.5">
+            </div>
+          </div>
+
+          <!-- [06] EQUALIZER -->
+          <div class="pedal-unit">
+            <div class="pedal-head">
+              <div class="pedal-title-wrap">
+                <h3>[06] EQUALIZER // 3-BAND EQ</h3>
+                <div class="favicon-talk-bubble">
+                  <img src="favicon.png" alt="Guide" class="bubble-avatar" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22%3E%3Crect width=%2240%22 height=%2240%22 fill=%22%23ffb000%22/%3E%3C/svg%3E'" />
+                  <div class="bubble-copy">
+                    <strong>Equalizer // 3-Band Tone</strong>
+                    Sculpts bass, midrange, and treble balance. Boosting <em>Low</em> adds warm sub-weight, <em>Mid</em> brings instruments forward in the mix, and <em>High</em> controls crisp air and sparkle.
+                  </div>
+                </div>
+              </div>
+              <button class="stomp-switch bypassed" id="bypEq">BYPASSED</button>
+            </div>
+            <div class="param-group">
+              <div class="param-label">
+                <span>LOW BASS (120 Hz)</span>
+                <span id="valEqLow">+3.0 dB</span>
+              </div>
+              <input type="range" id="ctrlEqLow" min="-15" max="15" step="0.5" value="3">
+            </div>
+            <div class="param-group">
+              <div class="param-label">
+                <span>MID PRESENCE (1.1 kHz)</span>
+                <span id="valEqMid">0.0 dB</span>
+              </div>
+              <input type="range" id="ctrlEqMid" min="-15" max="15" step="0.5" value="0">
+            </div>
+            <div class="param-group">
+              <div class="param-label">
+                <span>HIGH TREBLE (4.5 kHz)</span>
+                <span id="valEqHigh">+2.0 dB</span>
+              </div>
+              <input type="range" id="ctrlEqHigh" min="-15" max="15" step="0.5" value="2">
+            </div>
+          </div>
+
+          <!-- [07] PHASER -->
+          <div class="pedal-unit">
+            <div class="pedal-head">
+              <div class="pedal-title-wrap">
+                <h3>[07] PHASER // 4-STAGE ALLPASS</h3>
+                <div class="favicon-talk-bubble">
+                  <img src="favicon.png" alt="Guide" class="bubble-avatar" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22%3E%3Crect width=%2240%22 height=%2240%22 fill=%22%23ffb000%22/%3E%3C/svg%3E'" />
+                  <div class="bubble-copy">
+                    <strong>Phaser // 4-Stage Allpass</strong>
+                    Swirls the sound by creating moving notches in the frequency spectrum. Increasing <em>Sweep Rate</em> spins the effect faster, while <em>Sweep Depth</em> widens the whooshing motion.
+                  </div>
+                </div>
+              </div>
+              <button class="stomp-switch bypassed" id="bypPhaser">BYPASSED</button>
+            </div>
+            <div class="param-group">
+              <div class="param-label">
+                <span>SWEEP RATE</span>
+                <span id="valPhaserRate">0.45 Hz</span>
+              </div>
+              <input type="range" id="ctrlPhaserRate" min="0.05" max="5.0" step="0.05" value="0.45">
+            </div>
+            <div class="param-group">
+              <div class="param-label">
+                <span>SWEEP DEPTH</span>
+                <span id="valPhaserDepth">900 Hz</span>
+              </div>
+              <input type="range" id="ctrlPhaserDepth" min="100" max="2400" step="20" value="900">
+            </div>
+          </div>
+
+          <!-- [08] FLANGER (ACTIVE BY DEFAULT) -->
+          <div class="pedal-unit">
+            <div class="pedal-head">
+              <div class="pedal-title-wrap">
+                <h3>[08] FLANGER // COMB MODULATOR</h3>
+                <div class="favicon-talk-bubble">
+                  <img src="favicon.png" alt="Guide" class="bubble-avatar" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22%3E%3Crect width=%2240%22 height=%2240%22 fill=%22%23ffb000%22/%3E%3C/svg%3E'" />
+                  <div class="bubble-copy">
+                    <strong>Flanger // Comb Modulator</strong>
+                    Blends two identical signals with a tiny shifting time gap for a dramatic "jet-plane" sweep. Higher <em>LFO Rate</em> speeds up the cycle; higher <em>Regen Feedback</em> intensifies the metallic resonance.
+                  </div>
+                </div>
+              </div>
+              <button class="stomp-switch" id="bypFlanger">ACTIVE</button>
+            </div>
+            <div class="param-group">
+              <div class="param-label">
+                <span>LFO RATE</span>
+                <span id="valFlangerRate">0.25 Hz</span>
+              </div>
+              <input type="range" id="ctrlFlangerRate" min="0.05" max="4.0" step="0.05" value="0.25">
+            </div>
+            <div class="param-group">
+              <div class="param-label">
+                <span>REGEN FEEDBACK</span>
+                <span id="valFlangerFb">50 %</span>
+              </div>
+              <input type="range" id="ctrlFlangerFb" min="0" max="0.85" step="0.01" value="0.50">
+            </div>
+          </div>
+
+          <!-- [09] CHORUS -->
+          <div class="pedal-unit">
+            <div class="pedal-head">
+              <div class="pedal-title-wrap">
+                <h3>[09] CHORUS // STEREO DOUBLER</h3>
+                <div class="favicon-talk-bubble">
+                  <img src="favicon.png" alt="Guide" class="bubble-avatar" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22%3E%3Crect width=%2240%22 height=%2240%22 fill=%22%23ffb000%22/%3E%3C/svg%3E'" />
+                  <div class="bubble-copy">
+                    <strong>Chorus // Ensemble Doubler</strong>
+                    Makes a single sound feel like multiple instruments playing in unison. Raising <em>Shimmer Rate</em> adds faster pitch movement, while <em>Lush Depth</em> thickens and detunes the ensemble spread.
+                  </div>
+                </div>
+              </div>
+              <button class="stomp-switch bypassed" id="bypChorus">BYPASSED</button>
+            </div>
+            <div class="param-group">
+              <div class="param-label">
+                <span>SHIMMER RATE</span>
+                <span id="valChorusRate">1.20 Hz</span>
+              </div>
+              <input type="range" id="ctrlChorusRate" min="0.1" max="5.0" step="0.1" value="1.2">
+            </div>
+            <div class="param-group">
+              <div class="param-label">
+                <span>LUSH DEPTH</span>
+                <span id="valChorusDepth">45 %</span>
+              </div>
+              <input type="range" id="ctrlChorusDepth" min="0.05" max="1.0" step="0.05" value="0.45">
+            </div>
+          </div>
+
+          <!-- [10] TREMOLO -->
+          <div class="pedal-unit">
+            <div class="pedal-head">
+              <div class="pedal-title-wrap">
+                <h3>[10] TREMOLO // AMP PULSER</h3>
+                <div class="favicon-talk-bubble">
+                  <img src="favicon.png" alt="Guide" class="bubble-avatar" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22%3E%3Crect width=%2240%22 height=%2240%22 fill=%22%23ffb000%22/%3E%3C/svg%3E'" />
+                  <div class="bubble-copy">
+                    <strong>Tremolo // Amplitude Pulser</strong>
+                    Rhythmically raises and lowers the volume like a vintage tube amp. Turning up <em>Pulse Speed</em> makes the volume flutter faster, and increasing <em>Pulse Depth</em> creates deeper rhythmic chops.
+                  </div>
+                </div>
+              </div>
+              <button class="stomp-switch bypassed" id="bypTremolo">BYPASSED</button>
+            </div>
+            <div class="param-group">
+              <div class="param-label">
+                <span>PULSE SPEED</span>
+                <span id="valTremoloRate">4.50 Hz</span>
+              </div>
+              <input type="range" id="ctrlTremoloRate" min="0.5" max="14.0" step="0.25" value="4.5">
+            </div>
+            <div class="param-group">
+              <div class="param-label">
+                <span>PULSE DEPTH</span>
+                <span id="valTremoloDepth">65 %</span>
+              </div>
+              <input type="range" id="ctrlTremoloDepth" min="0" max="1.0" step="0.05" value="0.65">
+            </div>
+          </div>
+
+          <!-- [11] DELAY (ACTIVE BY DEFAULT) -->
+          <div class="pedal-unit">
+            <div class="pedal-head">
+              <div class="pedal-title-wrap">
+                <h3>[11] DELAY // ECHO MATRIX</h3>
+                <div class="favicon-talk-bubble">
+                  <img src="favicon.png" alt="Guide" class="bubble-avatar" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22%3E%3Crect width=%2240%22 height=%2240%22 fill=%22%23ffb000%22/%3E%3C/svg%3E'" />
+                  <div class="bubble-copy">
+                    <strong>Delay // Echo Matrix</strong>
+                    Repeats your audio like an echo bouncing off a canyon wall. Increasing <em>Delay Time</em> spaces the echoes further apart, while <em>Feedback Loop</em> controls how many times the echo repeats before fading.
+                  </div>
+                </div>
+              </div>
+              <button class="stomp-switch" id="bypDelay">ACTIVE</button>
+            </div>
+            <div class="param-group">
+              <div class="param-label">
+                <span>DELAY TIME</span>
+                <span id="valDelayTime">320 ms</span>
+              </div>
+              <input type="range" id="ctrlDelayTime" min="0.05" max="0.90" step="0.01" value="0.32">
+            </div>
+            <div class="param-group">
+              <div class="param-label">
+                <span>FEEDBACK LOOP</span>
+                <span id="valDelayFb">40 %</span>
+              </div>
+              <input type="range" id="ctrlDelayFb" min="0" max="0.85" step="0.01" value="0.40">
+            </div>
+          </div>
+
+          <!-- [12] REVERB (ACTIVE BY DEFAULT) -->
+          <div class="pedal-unit">
+            <div class="pedal-head">
+              <div class="pedal-title-wrap">
+                <h3>[12] REVERB // CONVOLVER HALL</h3>
+                <div class="favicon-talk-bubble">
+                  <img src="favicon.png" alt="Guide" class="bubble-avatar" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22%3E%3Crect width=%2240%22 height=%2240%22 fill=%22%23ffb000%22/%3E%3C/svg%3E'" />
+                  <div class="bubble-copy">
+                    <strong>Reverb // Convolver Hall</strong>
+                    Places your sound inside a spacious acoustic concert hall. Raising the <em>Wet Mix</em> slider blends in more ambient room reflections, moving the sound from dry close-up to dreamy atmospheric space.
+                  </div>
+                </div>
+              </div>
+              <button class="stomp-switch" id="bypReverb">ACTIVE</button>
+            </div>
+            <div class="param-group">
+              <div class="param-label">
+                <span>WET MIX</span>
+                <span id="valReverbMix">35 %</span>
+              </div>
+              <input type="range" id="ctrlReverbMix" min="0" max="1.0" step="0.02" value="0.35">
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-block spec-showcase">
+      <div id="specCard01" class="parallax-lens-card card-a dark-tech-card clickable-spec-card" title="Click to trigger Module Spec 01 visual flash">
+        <div style="font-size: 11px; color: var(--amber); font-weight: 700; margin-bottom: 8px;">MODULE_SPEC // 01 [CLICK TO ENGAGE]</div>
+        <h3 style="font-family: var(--display); font-size: 24px; margin-bottom: 10px;">INFINITE_LOOPS // PURE_NOISE</h3>
+        <p style="font-size: 12px; line-height: 1.6; color: rgba(242,236,225,0.8);">
+          Feed it a random MP4 or MP3, let it loop until the heat death of the universe, or pick a pure synth tone when you're too lazy to upload anything.
+        </p>
+      </div>
+
+      <div id="specCard02" class="dark-tech-card card-b clickable-spec-card" title="Click to trigger Module Spec 02 visual flash">
+        <div style="font-size: 11px; color: var(--amber); font-weight: 700; margin-bottom: 8px;">MODULE_SPEC // 02 [CLICK TO ENGAGE]</div>
+        <h3 style="font-family: var(--display); font-size: 24px; margin-bottom: 10px;">TWELVE_EFFECTS // BEAT_PULSE</h3>
+        <p style="font-size: 12px; line-height: 1.6; color: rgba(242,236,225,0.8);">
+          Chain twelve vintage effects together and watch the pinstriped background flash neon orange every four beats like a slightly disappointed metronome.
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span>PATCHWORK // PROCRASTINATION_STATION — 12-WAY NOISE MAKER</span>
+    <a href="https://urbanmasque.com" target="_blank" rel="noopener noreferrer" class="footer-link">urbanmasque.com</a>
+  </footer>
+
+  <script>
+    // Populate 24-Column Builders Grid
+    const ruler = document.getElementById('gridRuler');
+    const backdrop = document.getElementById('gridBackdrop');
+    for (let i = 1; i <= 24; i++) {
+      const cell = document.createElement('div');
+      cell.textContent = i < 10 ? `0${i}` : i;
+      ruler.appendChild(cell);
+      backdrop.appendChild(document.createElement('div'));
+    }
+
+    let lastScrollY = window.scrollY;
+    const scrollClock = document.getElementById('scrollClock');
+    window.addEventListener('scroll', () => {
+      const currentY = window.scrollY;
+      const delta = Math.abs(currentY - lastScrollY);
+      lastScrollY = currentY;
+      scrollClock.textContent = `CLK: ${(120 + delta * 3.7).toFixed(1)} MHz // Y: ${Math.round(currentY)}px`;
+    });
+
+    // Easter Egg Overlays for Module Spec 01 & 02
+    let cardFlashTimeout = null;
+    const cardFlashOverlay = document.getElementById('cardFlashOverlay');
+    document.getElementById('specCard01').addEventListener('click', () => {
+      clearTimeout(cardFlashTimeout);
+      cardFlashOverlay.classList.add('active-flash');
+      cardFlashTimeout = setTimeout(() => {
+        cardFlashOverlay.classList.remove('active-flash');
+      }, 650);
+    });
+
+    let spec02FlashTimeout = null;
+    const spec02FlashOverlay = document.getElementById('spec02FlashOverlay');
+    document.getElementById('specCard02').addEventListener('click', () => {
+      clearTimeout(spec02FlashTimeout);
+      spec02FlashOverlay.classList.add('active-flash');
+      spec02FlashTimeout = setTimeout(() => {
+        spec02FlashOverlay.classList.remove('active-flash');
+      }, 650);
+    });
+
+    // Web Audio API DSP & Routing State
+    let audioCtx = null;
+    let isDirectMediaActive = false;
+    let directMediaSourceNode = null;
+    let activeOsc = null;
+    let activeOscGain = null;
+    let currentWaveform = null;
+    let nodes = {};
+
+    // Only Flanger, Delay, and Reverb are Active (bypass: false) by default
+    const state = {
+      toneFreq: 110,
+      distortion: 260, distortionBypass: true,
+      bitcrush: 6, bitcrushBypass: true,
+      compThresh: -24, compRatio: 6, compBypass: true,
+      cutoff: 1200, sweepRate: 0.6, sweepQ: 4.5, sweepBypass: true,
+      wahRate: 1.8, wahDepth: 1100, wahQ: 5.5, wahBypass: true,
+      eqLow: 3, eqMid: 0, eqHigh: 2, eqBypass: true,
+      phaserRate: 0.45, phaserDepth: 900, phaserBypass: true,
+      flangerRate: 0.25, flangerDepth: 0.0035, flangerFb: 0.5, flangerBypass: false,
+      chorusRate: 1.2, chorusDepth: 0.45, chorusBypass: true,
+      tremoloRate: 4.5, tremoloDepth: 0.65, tremoloBypass: true,
+      delayTime: 0.32, delayFb: 0.4, delayBypass: false,
+      reverbMix: 0.35, reverbBypass: false
+    };
+
+    function makeDistortionCurve(k = 0) {
+      const n = 44100, curve = new Float32Array(n), deg = Math.PI / 180;
+      for (let i = 0; i < n; ++i) {
+        const x = (i * 2) / n - 1;
+        curve[i] = k <= 0 ? x : ((3 + k) * x * 20 * deg) / (Math.PI + k * Math.abs(x));
+      }
+      return curve;
+    }
+
+    function makeBitcrushCurve(bits = 8) {
+      const n = 65536, curve = new Float32Array(n), steps = Math.pow(2, bits);
+      for (let i = 0; i < n; i++) {
+        const x = (i * 2) / n - 1;
+        curve[i] = Math.round(x * steps) / steps;
+      }
+      return curve;
+    }
+
+    function createImpulse(ctx, dur, dec) {
+      const len = ctx.sampleRate * dur, buf = ctx.createBuffer(2, len, ctx.sampleRate);
+      for (let c = 0; c < 2; c++) {
+        const d = buf.getChannelData(c);
+        for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, dec);
+      }
+      return buf;
+    }
+
+    function ensureAudioGraph() {
+      if (!audioCtx) {
+        initDemoAudio();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function initDemoAudio() {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+      const inputBus = audioCtx.createGain();
+      inputBus.gain.value = 1.0;
+
+      // [01] Distortion
+      const distortion = audioCtx.createWaveShaper();
+      distortion.oversample = '4x';
+
+      // [02] Bitcrush
+      const bitcrush = audioCtx.createWaveShaper();
+
+      // [03] Compressor
+      const compressor = audioCtx.createDynamicsCompressor();
+      compressor.knee.value = 12;
+      compressor.attack.value = 0.005;
+      compressor.release.value = 0.18;
+
+      // [04] Resonant Filter Sweep
+      const sweepFilter = audioCtx.createBiquadFilter();
+      sweepFilter.type = 'lowpass';
+      const sweepLfo = audioCtx.createOscillator();
+      const sweepLfoGain = audioCtx.createGain();
+      sweepLfo.type = 'sine';
+      sweepLfo.connect(sweepLfoGain);
+      sweepLfoGain.connect(sweepFilter.frequency);
+      sweepLfo.start();
+
+      // [05] Wah-Wah (Bandpass with LFO + dry/wet mix for bypass)
+      const wahDry = audioCtx.createGain();
+      const wahFilter = audioCtx.createBiquadFilter();
+      wahFilter.type = 'bandpass';
+      wahFilter.frequency.value = 950;
+      const wahWet = audioCtx.createGain();
+      const wahOut = audioCtx.createGain();
+      const wahLfo = audioCtx.createOscillator();
+      const wahLfoGain = audioCtx.createGain();
+      wahLfo.type = 'triangle';
+      wahLfo.connect(wahLfoGain);
+      wahLfoGain.connect(wahFilter.frequency);
+      wahLfo.start();
+
+      // [06] 3-Band Equalizer
+      const eqLow = audioCtx.createBiquadFilter();
+      eqLow.type = 'lowshelf';
+      eqLow.frequency.value = 120;
+      const eqMid = audioCtx.createBiquadFilter();
+      eqMid.type = 'peaking';
+      eqMid.frequency.value = 1100;
+      eqMid.Q.value = 1.0;
+      const eqHigh = audioCtx.createBiquadFilter();
+      eqHigh.type = 'highshelf';
+      eqHigh.frequency.value = 4500;
+
+      // [07] Phaser
+      const phaserDry = audioCtx.createGain();
+      const phaserWet = audioCtx.createGain();
+      const phaserOut = audioCtx.createGain();
+      const allpassStages = [350, 800, 1600, 3200].map(f => {
+        const ap = audioCtx.createBiquadFilter();
+        ap.type = 'allpass';
+        ap.frequency.value = f;
+        return ap;
+      });
+      for (let i = 0; i < 3; i++) allpassStages[i].connect(allpassStages[i + 1]);
+      const phaserLfo = audioCtx.createOscillator();
+      const phaserLfoGain = audioCtx.createGain();
+      phaserLfo.connect(phaserLfoGain);
+      allpassStages.forEach(ap => phaserLfoGain.connect(ap.frequency));
+      phaserLfo.start();
+
+      // [08] Flanger
+      const flangerDry = audioCtx.createGain();
+      const flangerWet = audioCtx.createGain();
+      const flangerOut = audioCtx.createGain();
+      const flangerDelay = audioCtx.createDelay(0.05);
+      flangerDelay.delayTime.value = 0.004;
+      const flangerFb = audioCtx.createGain();
+      const flangerLfo = audioCtx.createOscillator();
+      const flangerLfoGain = audioCtx.createGain();
+      flangerLfo.connect(flangerLfoGain);
+      flangerLfoGain.connect(flangerDelay.delayTime);
+      flangerDelay.connect(flangerFb);
+      flangerFb.connect(flangerDelay);
+      flangerLfo.start();
+
+      // [09] Chorus
+      const chorusDry = audioCtx.createGain();
+      const chorusWet = audioCtx.createGain();
+      const chorusOut = audioCtx.createGain();
+      const chorusDelay = audioCtx.createDelay(0.1);
+      chorusDelay.delayTime.value = 0.024;
+      const chorusLfo = audioCtx.createOscillator();
+      const chorusLfoGain = audioCtx.createGain();
+      chorusLfo.type = 'sine';
+      chorusLfo.connect(chorusLfoGain);
+      chorusLfoGain.connect(chorusDelay.delayTime);
+      chorusLfo.start();
+
+      // [10] Tremolo
+      const tremoloNode = audioCtx.createGain();
+      tremoloNode.gain.value = 1.0;
+      const tremoloLfo = audioCtx.createOscillator();
+      const tremoloLfoGain = audioCtx.createGain();
+      tremoloLfo.type = 'sine';
+      tremoloLfo.connect(tremoloLfoGain);
+      tremoloLfoGain.connect(tremoloNode.gain);
+      tremoloLfo.start();
+
+      // [11] Delay
+      const delayDry = audioCtx.createGain();
+      const delayNode = audioCtx.createDelay(2.0);
+      const delayFb = audioCtx.createGain();
+      const delayWet = audioCtx.createGain();
+      const delayOut = audioCtx.createGain();
+      delayNode.connect(delayFb);
+      delayFb.connect(delayNode);
+      delayNode.connect(delayWet);
+
+      // [12] Reverb
+      const reverbDry = audioCtx.createGain();
+      const convolver = audioCtx.createConvolver();
+      convolver.buffer = createImpulse(audioCtx, 2.4, 2.2);
+      const reverbWet = audioCtx.createGain();
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+
+      // Connect 12-Stage Serial Chain
+      inputBus.connect(distortion);
+      distortion.connect(bitcrush);
+      bitcrush.connect(compressor);
+      compressor.connect(sweepFilter);
+
+      // SweepFilter -> Wah-Wah
+      sweepFilter.connect(wahDry);
+      sweepFilter.connect(wahFilter);
+      wahFilter.connect(wahWet);
+      wahDry.connect(wahOut);
+      wahWet.connect(wahOut);
+
+      // Wah-Wah -> 3-Band EQ
+      wahOut.connect(eqLow);
+      eqLow.connect(eqMid);
+      eqMid.connect(eqHigh);
+
+      // EQ -> Phaser
+      eqHigh.connect(phaserDry);
+      eqHigh.connect(allpassStages[0]);
+      allpassStages[3].connect(phaserWet);
+      phaserDry.connect(phaserOut);
+      phaserWet.connect(phaserOut);
+
+      // Phaser -> Flanger
+      phaserOut.connect(flangerDry);
+      phaserOut.connect(flangerDelay);
+      flangerDelay.connect(flangerWet);
+      flangerDry.connect(flangerOut);
+      flangerWet.connect(flangerOut);
+
+      // Flanger -> Chorus
+      flangerOut.connect(chorusDry);
+      flangerOut.connect(chorusDelay);
+      chorusDelay.connect(chorusWet);
+      chorusDry.connect(chorusOut);
+      chorusWet.connect(chorusOut);
+
+      // Chorus -> Tremolo
+      chorusOut.connect(tremoloNode);
+
+      // Tremolo -> Delay
+      tremoloNode.connect(delayDry);
+      tremoloNode.connect(delayNode);
+      delayDry.connect(delayOut);
+      delayWet.connect(delayOut);
+
+      // Delay -> Reverb -> Analyser -> Output
+      delayOut.connect(reverbDry);
+      delayOut.connect(convolver);
+      convolver.connect(reverbWet);
+      reverbDry.connect(analyser);
+      reverbWet.connect(analyser);
+      analyser.connect(audioCtx.destination);
+
+      nodes = {
+        inputBus, distortion, bitcrush, compressor,
+        sweepFilter, sweepLfo, sweepLfoGain,
+        wahDry, wahFilter, wahWet, wahLfo, wahLfoGain,
+        eqLow, eqMid, eqHigh,
+        phaserWet, phaserLfo, phaserLfoGain,
+        flangerWet, flangerFb, flangerLfo, flangerLfoGain,
+        chorusWet, chorusLfo, chorusLfoGain,
+        tremoloNode, tremoloLfo, tremoloLfoGain,
+        delayNode, delayFb, delayWet,
+        reverbWet, analyser
+      };
+      syncPedalParams();
+    }
+
+    function syncPedalParams() {
+      if (!audioCtx || !nodes.distortion) return;
+      const now = audioCtx.currentTime;
+
+      // [01] Distortion
+      nodes.distortion.curve = state.distortionBypass ? makeDistortionCurve(0) : makeDistortionCurve(state.distortion);
+
+      // [02] Bitcrush
+      nodes.bitcrush.curve = state.bitcrushBypass ? makeDistortionCurve(0) : makeBitcrushCurve(state.bitcrush);
+
+      // [03] Compressor
+      nodes.compressor.threshold.setTargetAtTime(state.compBypass ? 0 : state.compThresh, now, 0.02);
+      nodes.compressor.ratio.setTargetAtTime(state.compBypass ? 1 : state.compRatio, now, 0.02);
+
+      // [04] Filter Sweep
+      nodes.sweepFilter.frequency.setTargetAtTime(state.sweepBypass ? 18000 : state.cutoff, now, 0.02);
+      nodes.sweepFilter.Q.setTargetAtTime(state.sweepBypass ? 0.7 : state.sweepQ, now, 0.02);
+      nodes.sweepLfo.frequency.setTargetAtTime(state.sweepRate, now, 0.02);
+      nodes.sweepLfoGain.gain.setTargetAtTime(state.sweepBypass ? 0 : state.cutoff * 0.55, now, 0.02);
+
+      // [05] Wah-Wah
+      nodes.wahDry.gain.setTargetAtTime(state.wahBypass ? 1.0 : 0.25, now, 0.02);
+      nodes.wahWet.gain.setTargetAtTime(state.wahBypass ? 0.0 : 1.35, now, 0.02);
+      nodes.wahFilter.Q.setTargetAtTime(state.wahQ, now, 0.02);
+      nodes.wahLfo.frequency.setTargetAtTime(state.wahRate, now, 0.02);
+      nodes.wahLfoGain.gain.setTargetAtTime(state.wahBypass ? 0 : state.wahDepth * 0.5, now, 0.02);
+
+      // [06] Equalizer
+      nodes.eqLow.gain.setTargetAtTime(state.eqBypass ? 0 : state.eqLow, now, 0.02);
+      nodes.eqMid.gain.setTargetAtTime(state.eqBypass ? 0 : state.eqMid, now, 0.02);
+      nodes.eqHigh.gain.setTargetAtTime(state.eqBypass ? 0 : state.eqHigh, now, 0.02);
+
+      // [07] Phaser
+      nodes.phaserLfo.frequency.setTargetAtTime(state.phaserRate, now, 0.02);
+      nodes.phaserLfoGain.gain.setTargetAtTime(state.phaserDepth, now, 0.02);
+      nodes.phaserWet.gain.setTargetAtTime(state.phaserBypass ? 0 : 0.75, now, 0.02);
+
+      // [08] Flanger
+      nodes.flangerLfo.frequency.setTargetAtTime(state.flangerRate, now, 0.02);
+      nodes.flangerLfoGain.gain.setTargetAtTime(state.flangerDepth, now, 0.02);
+      nodes.flangerFb.gain.setTargetAtTime(state.flangerBypass ? 0 : state.flangerFb, now, 0.02);
+      nodes.flangerWet.gain.setTargetAtTime(state.flangerBypass ? 0 : 0.7, now, 0.02);
+
+      // [09] Chorus
+      nodes.chorusLfo.frequency.setTargetAtTime(state.chorusRate, now, 0.02);
+      nodes.chorusLfoGain.gain.setTargetAtTime(state.chorusBypass ? 0 : state.chorusDepth * 0.008, now, 0.02);
+      nodes.chorusWet.gain.setTargetAtTime(state.chorusBypass ? 0 : 0.65, now, 0.02);
+
+      // [10] Tremolo
+      nodes.tremoloLfo.frequency.setTargetAtTime(state.tremoloRate, now, 0.02);
+      nodes.tremoloLfoGain.gain.setTargetAtTime(state.tremoloBypass ? 0 : state.tremoloDepth * 0.5, now, 0.02);
+
+      // [11] Delay
+      nodes.delayNode.delayTime.setTargetAtTime(state.delayTime, now, 0.02);
+      nodes.delayFb.gain.setTargetAtTime(state.delayBypass ? 0 : state.delayFb, now, 0.02);
+      nodes.delayWet.gain.setTargetAtTime(state.delayBypass ? 0 : 0.65, now, 0.02);
+
+      // [12] Reverb
+      nodes.reverbWet.gain.setTargetAtTime(state.reverbBypass ? 0 : state.reverbMix, now, 0.02);
+    }
+
+    // Local File Upload -> Direct HTML5 Video/Audio Element (Loops by Default)
+    const videoEl = document.getElementById('directMediaPlayer');
+    const loopCheckbox = document.getElementById('loopToggleCheckbox');
+
+    loopCheckbox.addEventListener('change', (e) => {
+      videoEl.loop = e.target.checked;
+    });
+
+    document.getElementById('localFileInput').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      ensureAudioGraph();
+      const fileUrl = URL.createObjectURL(file);
+      document.getElementById('mediaPlaceholder').style.display = 'none';
+      videoEl.style.display = 'block';
+      videoEl.loop = loopCheckbox.checked;
+      videoEl.src = fileUrl;
+
+      if (!directMediaSourceNode) {
+        directMediaSourceNode = audioCtx.createMediaElementSource(videoEl);
+        directMediaSourceNode.connect(nodes.inputBus);
+      }
+      isDirectMediaActive = true;
+      videoEl.play();
+      document.getElementById('audioStatusText').textContent = `STATUS: LOCAL FILE [${file.name.toUpperCase()}] LOOPING -> 12-STAGE DSP`;
+    });
+
+    // 4 Waveform Tone Generators (Sine, Square, Sawtooth, Triangle)
+    const waveButtons = document.querySelectorAll('.wave-btn');
+
+    function stopWaveformGenerator() {
+      if (activeOsc) {
+        try { activeOsc.stop(); } catch (err) {}
+        activeOsc.disconnect();
+        activeOsc = null;
+      }
+      if (activeOscGain) {
+        activeOscGain.disconnect();
+        activeOscGain = null;
+      }
+      currentWaveform = null;
+      waveButtons.forEach(btn => btn.classList.remove('active-wave'));
+    }
+
+    waveButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        ensureAudioGraph();
+        const selectedWave = btn.getAttribute('data-wave');
+
+        // Toggle off if clicking the already active waveform
+        if (currentWaveform === selectedWave) {
+          stopWaveformGenerator();
+          document.getElementById('audioStatusText').textContent = isDirectMediaActive
+            ? 'STATUS: LOCAL MEDIA ACTIVE'
+            : 'STATUS: READY';
+          return;
+        }
+
+        stopWaveformGenerator();
+        currentWaveform = selectedWave;
+        btn.classList.add('active-wave');
+
+        activeOsc = audioCtx.createOscillator();
+        activeOscGain = audioCtx.createGain();
+        activeOsc.type = selectedWave;
+        activeOsc.frequency.setValueAtTime(state.toneFreq, audioCtx.currentTime);
+
+        // Smooth fade-in to avoid clicks
+        activeOscGain.gain.setValueAtTime(0.001, audioCtx.currentTime);
+        activeOscGain.gain.exponentialRampToValueAtTime(0.22, audioCtx.currentTime + 0.04);
+
+        activeOsc.connect(activeOscGain);
+        activeOscGain.connect(nodes.inputBus);
+        activeOsc.start();
+
+        document.getElementById('audioStatusText').textContent = `STATUS: [${selectedWave.toUpperCase()} TONE @ ${state.toneFreq}Hz] -> 12-STAGE DSP ACTIVE`;
+      });
+    });
+
+    document.getElementById('ctrlToneFreq').addEventListener('input', (e) => {
+      const freq = Number(e.target.value);
+      state.toneFreq = freq;
+      document.getElementById('valToneFreq').textContent = `PITCH: ${freq} Hz`;
+      if (activeOsc && audioCtx) {
+        activeOsc.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.015);
+        document.getElementById('audioStatusText').textContent = `STATUS: [${currentWaveform.toUpperCase()} TONE @ ${freq}Hz] -> 12-STAGE DSP ACTIVE`;
+      }
+    });
+
+    // Bind Sliders & Bypass Switches for all 12 Modules
+    function bindSlider(id, valId, key, fmt) {
+      document.getElementById(id).addEventListener('input', (e) => {
+        const v = Number(e.target.value);
+        state[key] = v;
+        document.getElementById(valId).textContent = fmt(v);
+        syncPedalParams();
+      });
+    }
+
+    bindSlider('ctrlDistortion', 'valDistortion', 'distortion', v => v);
+    bindSlider('ctrlBitcrush', 'valBitcrush', 'bitcrush', v => `${v} BITS`);
+    bindSlider('ctrlCompThresh', 'valCompThresh', 'compThresh', v => `${v} dB`);
+    bindSlider('ctrlCompRatio', 'valCompRatio', 'compRatio', v => `${v.toFixed(1)} : 1`);
+    bindSlider('ctrlCutoff', 'valCutoff', 'cutoff', v => `${v} Hz`);
+    bindSlider('ctrlSweepRate', 'valSweepRate', 'sweepRate', v => `${v.toFixed(2)} Hz`);
+    bindSlider('ctrlSweepQ', 'valSweepQ', 'sweepQ', v => v.toFixed(1));
+    bindSlider('ctrlWahRate', 'valWahRate', 'wahRate', v => `${v.toFixed(2)} Hz`);
+    bindSlider('ctrlWahDepth', 'valWahDepth', 'wahDepth', v => `${v} Hz`);
+    bindSlider('ctrlWahQ', 'valWahQ', 'wahQ', v => `${v.toFixed(1)}`);
+    bindSlider('ctrlEqLow', 'valEqLow', 'eqLow', v => `${v > 0 ? '+' : ''}${v.toFixed(1)} dB`);
+    bindSlider('ctrlEqMid', 'valEqMid', 'eqMid', v => `${v > 0 ? '+' : ''}${v.toFixed(1)} dB`);
+    bindSlider('ctrlEqHigh', 'valEqHigh', 'eqHigh', v => `${v > 0 ? '+' : ''}${v.toFixed(1)} dB`);
+    bindSlider('ctrlPhaserRate', 'valPhaserRate', 'phaserRate', v => `${v.toFixed(2)} Hz`);
+    bindSlider('ctrlPhaserDepth', 'valPhaserDepth', 'phaserDepth', v => `${v} Hz`);
+    bindSlider('ctrlFlangerRate', 'valFlangerRate', 'flangerRate', v => `${v.toFixed(2)} Hz`);
+    bindSlider('ctrlFlangerFb', 'valFlangerFb', 'flangerFb', v => `${Math.round(v * 100)} %`);
+    bindSlider('ctrlChorusRate', 'valChorusRate', 'chorusRate', v => `${v.toFixed(2)} Hz`);
+    bindSlider('ctrlChorusDepth', 'valChorusDepth', 'chorusDepth', v => `${Math.round(v * 100)} %`);
+    bindSlider('ctrlTremoloRate', 'valTremoloRate', 'tremoloRate', v => `${v.toFixed(2)} Hz`);
+    bindSlider('ctrlTremoloDepth', 'valTremoloDepth', 'tremoloDepth', v => `${Math.round(v * 100)} %`);
+    bindSlider('ctrlDelayTime', 'valDelayTime', 'delayTime', v => `${Math.round(v * 1000)} ms`);
+    bindSlider('ctrlDelayFb', 'valDelayFb', 'delayFb', v => `${Math.round(v * 100)} %`);
+    bindSlider('ctrlReverbMix', 'valReverbMix', 'reverbMix', v => `${Math.round(v * 100)} %`);
+
+    function bindBypass(btnId, key) {
+      const btn = document.getElementById(btnId);
+      btn.addEventListener('click', () => {
+        state[key] = !state[key];
+        btn.textContent = state[key] ? 'BYPASSED' : 'ACTIVE';
+        btn.classList.toggle('bypassed', state[key]);
+        syncPedalParams();
+      });
+    }
+
+    bindBypass('bypDistortion', 'distortionBypass');
+    bindBypass('bypBitcrush', 'bitcrushBypass');
+    bindBypass('bypCompressor', 'compBypass');
+    bindBypass('bypSweep', 'sweepBypass');
+    bindBypass('bypWah', 'wahBypass');
+    bindBypass('bypEq', 'eqBypass');
+    bindBypass('bypPhaser', 'phaserBypass');
+    bindBypass('bypFlanger', 'flangerBypass');
+    bindBypass('bypChorus', 'chorusBypass');
+    bindBypass('bypTremolo', 'tremoloBypass');
+    bindBypass('bypDelay', 'delayBypass');
+    bindBypass('bypReverb', 'reverbBypass');
+
+    // Dither Waveform Visualizer + 4th-Hit Neon Orange Pinstripe Background Flash
+    const dCanvas = document.getElementById('ditherCanvas');
+    const dCtx = dCanvas.getContext('2d');
+    const freqData = new Uint8Array(128);
+    let tick = 0;
+
+    // Beat Detection & 4th-Hit Background Flash State
+    let rollingEnergy = 0;
+    let lastBeatTime = 0;
+    let beatHitCount = 0;
+    let bgFlashIntensity = 0; // 0 = normal black (#0a0a0c), 1 = neon orange (#ff5500)
+
+    function resizeCanvas() {
+      dCanvas.width = window.innerWidth;
+      dCanvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function renderDitherMatrix() {
+      tick += 0.035;
+      dCtx.clearRect(0, 0, dCanvas.width, dCanvas.height);
+
+      const isAnyAudioActive = Boolean(currentWaveform) || (isDirectMediaActive && !videoEl.paused);
+
+      if (nodes.analyser && isAnyAudioActive) {
+        nodes.analyser.getByteTimeDomainData(freqData);
+        let sum = 0;
+        let peak = 0;
+        for (let i = 0; i < freqData.length; i++) {
+          const amp = Math.abs(freqData[i] - 128);
+          sum += amp;
+          if (amp > peak) peak = amp;
+        }
+        const avgAmp = sum / freqData.length;
+        const db = (20 * Math.log10(avgAmp / 128 + 0.0001)).toFixed(1);
+        document.getElementById('rmsMeter').textContent = `LVL: ${db} dB`;
+
+        // Transient / Beat Peak Detection
+        const nowMs = performance.now();
+        const threshold = Math.max(10, rollingEnergy * 1.32);
+
+        if ((avgAmp > threshold || peak > 38) && (nowMs - lastBeatTime > 260)) {
+          lastBeatTime = nowMs;
+          beatHitCount++;
+          const stepInBar = ((beatHitCount - 1) % 4) + 1;
+          document.getElementById('BeatCounterDisplay').textContent = `BEAT HIT: ${stepInBar} / 4`;
+
+          // Every 4th hit flashes the black pinstriped background to neon orange
+          if (beatHitCount % 4 === 0) {
+            bgFlashIntensity = 1.0;
+          }
+        }
+        rollingEnergy = rollingEnergy * 0.92 + avgAmp * 0.08;
+      }
+
+      // Smoothly interpolate background color from Neon Orange (#ff5500) back to normal Black (#0a0a0c)
+      if (bgFlashIntensity > 0.005) {
+        const r = Math.round(10 + (255 - 10) * bgFlashIntensity);
+        const g = Math.round(10 + (85 - 10) * bgFlashIntensity);
+        const b = Math.round(12 + (0 - 12) * bgFlashIntensity);
+        const bgColor = `rgb(${r}, ${g}, ${b})`;
+        document.body.style.backgroundColor = bgColor;
+        document.documentElement.style.backgroundColor = bgColor;
+        bgFlashIntensity *= 0.90; // Smooth decay back to black
+      } else if (bgFlashIntensity > 0) {
+        bgFlashIntensity = 0;
+        document.body.style.backgroundColor = '#0a0a0c';
+        document.documentElement.style.backgroundColor = '#0a0a0c';
+      }
+
+      // Render Yellow Dither Matrix Waveform
+      const cellSize = 10;
+      const cols = Math.ceil(dCanvas.width / cellSize);
+      const rows = Math.ceil(dCanvas.height / cellSize);
+
+      dCtx.fillStyle = '#ffb000';
+      for (let x = 0; x < cols; x++) {
+        const audioBoost = (nodes.analyser && isAnyAudioActive) ? (freqData[x % freqData.length] - 128) * 1.9 : 0;
+        const waveY = Math.floor(
+          (rows / 2) +
+          Math.sin(x * 0.08 + tick) * 8 +
+          Math.cos(x * 0.03 - tick * 1.4) * 5 +
+          (audioBoost / cellSize)
+        );
+
+        for (let y = waveY - 5; y <= waveY + 5; y++) {
+          const dist = Math.abs(y - waveY);
+          const px = x * cellSize;
+          const py = y * cellSize;
+
+          if ((x + y) % 2 === 0 && dist < 4) {
+            dCtx.fillRect(px, py, cellSize - 2, cellSize - 2);
+          } else if (dist === 0) {
+            dCtx.fillRect(px, py, cellSize - 1, cellSize - 1);
+          }
+        }
+      }
+      requestAnimationFrame(renderDitherMatrix);
+    }
+    renderDitherMatrix();
+  </script>
+</body>
+</html>
